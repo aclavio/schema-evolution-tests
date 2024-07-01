@@ -17,22 +17,25 @@ Start the dockerized test environment
 - Registers the initial schemas
 - Publishes a set of test records
 
-
-    ./step_1.sh
+```
+./step_1.sh
+```
 
 **Step 2:**
 - Registers the evolved schemas
 - Publishes a new set of test records
 
-
-    ./step_2.sh
+```
+./step_2.sh
+```
 
 **Step 3:**
 - Starts the consumer 
   - expected to fail when evolved schemas are encountered!
 
-
-    ./step_3.sh
+```
+./step_3.sh
+```
 
 ### Workarounds
 
