@@ -3,12 +3,17 @@
  */
 package io.confluent.test;
 
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaUtils;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.specific.SpecificData;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.errors.WakeupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import stream.processing.demo.AccountCreated;
+import stream.processing.demo.AccountDeleted;
+import stream.processing.demo.AccountUpdated;
 
 import java.io.FileInputStream;
 import java.util.Arrays;
@@ -57,7 +62,22 @@ public class TestConsumer implements Runnable {
                             record.offset(),
                             record.key(),
                             record.value().toString());
-                    logger.info("record uses schema: {}", record.value().getSchema().getFullName());
+
+                    // Convert the GenericRecord type from the union to the SpecificRecord type
+                    GenericRecord genericRecord = record.value();
+                    logger.info("record uses schema: {}", genericRecord.getSchema().getFullName());
+                    if ("stream.processing.demo.AccountCreated".equals(genericRecord.getSchema().getFullName())) {
+                        AccountCreated ac = (AccountCreated) SpecificData.get().deepCopy(AccountCreated.getClassSchema(), record.value());
+                        logger.info("converted to specific record AccountCreated: {}", ac);
+                    } else if ("stream.processing.demo.AccountDeleted".equals(genericRecord.getSchema().getFullName())) {
+                        AccountDeleted ad = (AccountDeleted) SpecificData.get().deepCopy(AccountDeleted.getClassSchema(), record.value());
+                        logger.info("converted to specific record AccountDeleted: {}", ad);
+                    } else if ("stream.processing.demo.AccountUpdated".equals(genericRecord.getSchema().getFullName())) {
+                        AccountUpdated au = (AccountUpdated) SpecificData.get().deepCopy(AccountUpdated.getClassSchema(), record.value());
+                        logger.info("converted to specific record AccountUpdated: {}", au);
+                    } else {
+                        logger.warn("unexpected schema!");
+                    }
                 });
 
                 // commit the offsets back to kafka
