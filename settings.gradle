@@ -1,0 +1,2 @@
+rootProject.name = 'schema-evolution-tests'
+include('producer-app-v1', 'producer-app-v2', 'consumer-app')

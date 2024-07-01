@@ -1,0 +1,8 @@
+{
+  "namespace": "stream.processing.demo",
+  "type": "record",
+  "name": "AccountDeleted",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}

@@ -1,0 +1,47 @@
+# Set Schema Compatability to Forward Compatible ("FULL" also produces a similar error)
+curl -s -X PUT --data '{"compatibility": "FORWARD"}' -H "Content-Type: application/vnd.schemaregistry.v1+json"  http://localhost:8081/config
+
+# Create test topic
+kafka-topics.sh --bootstrap-server localhost:9092 --create --partitions 1 --replication-factor 1 --topic union.test.avro
+
+# Register schemas
+## AccountCreated
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema":"{\"namespace\":\"stream.processing.demo\",\"type\":\"record\",\"name\":\"AccountCreated\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"owner\",\"type\":\"string\"}]}"}' \
+http://localhost:8081/subjects/stream.processing.demo.AccountCreated/versions
+## AccountUpdated
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema":"{\"namespace\":\"stream.processing.demo\",\"type\":\"record\",\"name\":\"AccountUpdated\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"amount\",\"type\":\"int\"}]}"}' \
+http://localhost:8081/subjects/stream.processing.demo.AccountUpdated/versions
+## AccountDeleted
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema":"{\"namespace\":\"stream.processing.demo\",\"type\":\"record\",\"name\":\"AccountDeleted\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"}]}"}' \
+http://localhost:8081/subjects/stream.processing.demo.AccountDeleted/versions
+## union.test.avro-value
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"references": [{"name": "stream.processing.demo.AccountCreated","subject": "stream.processing.demo.AccountCreated","version": 1},{"name": "stream.processing.demo.AccountUpdated","subject": "stream.processing.demo.AccountUpdated","version": 1},{"name": "stream.processing.demo.AccountDeleted","subject": "stream.processing.demo.AccountDeleted","version": 1}],"schema": "[ \"stream.processing.demo.AccountCreated\", \"stream.processing.demo.AccountUpdated\", \"stream.processing.demo.AccountDeleted\"]"}' \
+http://localhost:8081/subjects/union.test.avro-value/versions
+
+# In your producer application, use the avro-maven-plugin to generate SpecificRecord classes from the schemas
+# produce one or more records of the Union top level schema to the topic "union.test.avro".  Be sure to produce at least one "AccountCreated" type
+
+# in the consumer application, use the avro-maven-plugin to generate SpecificRecord classes from the schemas
+# consume the produced records to validate consumption occurs without errors prior to the next steps
+## note: your consumer should use the GenericRecord class for consumption due to the multiple types the union can produce.
+## note: ensure the consumer applicaiton has the property specific.avro.reader=true
+
+# evolve the AccountCreated schema
+## make a FORWARD compatible change, suggest adding a new field: {"name": "foo", "type": "string"}
+
+# Register the updated schema
+## AccountCreated v2
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema":"{\"namespace\":\"stream.processing.demo\",\"type\":\"record\",\"name\":\"AccountCreated\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"owner\",\"type\":\"string\"},{\"name\":\"foo\",\"type\":\"string\"}]}"}' \
+http://localhost:8081/subjects/stream.processing.demo.AccountCreated/versions
+## Register an updated union.test.avro-value schema - incrementing the reference to the AccountCreated schema v2
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"references": [{"name": "stream.processing.demo.AccountCreated","subject": "stream.processing.demo.AccountCreated","version": 2},{"name": "stream.processing.demo.AccountUpdated","subject": "stream.processing.demo.AccountUpdated","version": 1},{"name": "stream.processing.demo.AccountDeleted","subject": "stream.processing.demo.AccountDeleted","version": 1}],"schema": "[ \"stream.processing.demo.AccountCreated\", \"stream.processing.demo.AccountUpdated\", \"stream.processing.demo.AccountDeleted\"]"}' \
+http://localhost:8081/subjects/union.test.avro-value/versions
+
+# In the producer application, use the avro-maven-plugin to generate updated classes from the schemas
+# producer new records of the evolved AccountCreated type with the new field
+
+# Do not update the generated classes for the consumer application
+# using the consumer application, attempt to consume the updated records - you should recieve an error during deserialization
+## note: if you set the property specific.avro.reader=false the consumer should be able to consume the records.
+## however this behavior only occurs when the top level class is a Union
+## if you change the application to only produce AccountCreated records (and follow a similar registration/evolution proceedure) consumption will work with specific records

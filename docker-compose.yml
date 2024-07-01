@@ -1,0 +1,89 @@
+---
+version: '3.5'
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.1
+    hostname: zookeeper
+    container_name: zookeeper
+    restart: always
+    ports:
+      - "9999:9999"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_JMX_PORT: 9999
+      KAFKA_OPTS: -Dzookeeper.4lw.commands.whitelist=*
+
+  broker:
+    image: confluentinc/cp-server:7.5.1
+    hostname: broker
+    container_name: broker
+    restart: always
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+      - "10000:10000"
+    environment:
+      KAFKA_JMX_PORT: 10000
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: BROKER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: BROKER://:9092,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Confluent Metrics Reporter for Control Center Cluster Monitoring
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:9092
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+      # for 5.4.x:
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      # for 6.0.0
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.1
+    hostname: schema-registry
+    container_name: schema-registry
+    restart: always
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+      - "10001:10001"
+    environment:
+      SCHEMA_REGISTRY_JMX_PORT: 10001
+      SCHEMA_REGISTRY_JMX_HOSTNAME: localhost
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:9092
+      SCHEMA_REGISTRY_SCHEMA_PROVIDERS_AVRO_VALIDATE_DEFAULTS: "true"
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.5.1
+    hostname: control-center
+    container_name: control-center
+    restart: always
+    depends_on:
+      - broker
+      - schema-registry
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'broker:9092'
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      CONTROL_CENTER_KAFKA_BOOTSTRAP_SERVERS: 'broker:9092'
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_KAFKA_MYCLUSTER_BOOTSTRAP_SERVERS: 'broker:9092'
+      CONTROL_CENTER_UI_AUTOUPDATE_ENABLE: "false"
+      CONTROL_CENTER_COMMAND_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_METRICS_TOPIC_REPLICATION: 1

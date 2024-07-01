@@ -1,0 +1,10 @@
+{
+  "namespace": "stream.processing.demo",
+  "type": "record",
+  "name": "AccountCreated",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "owner", "type": "string"},
+    {"name": "comment", "type": "string", "default": "N/A"}
+  ]
+}

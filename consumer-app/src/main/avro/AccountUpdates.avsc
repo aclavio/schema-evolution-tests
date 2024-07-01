@@ -1,0 +1,5 @@
+[
+  "stream.processing.demo.AccountCreated",
+  "stream.processing.demo.AccountUpdated",
+  "stream.processing.demo.AccountDeleted"
+]
