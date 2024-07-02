@@ -1,4 +1,4 @@
-# Set Schema Compatability to Forward Compatible ("FULL" also produces a similar error)
+# Set Schema Compatibility to Forward Compatible ("FULL" also produces a similar error)
 curl -s -X PUT --data '{"compatibility": "FORWARD"}' -H "Content-Type: application/vnd.schemaregistry.v1+json"  http://localhost:8081/config
 
 # Create test topic
@@ -24,7 +24,7 @@ http://localhost:8081/subjects/union.test.avro-value/versions
 # in the consumer application, use the avro-maven-plugin to generate SpecificRecord classes from the schemas
 # consume the produced records to validate consumption occurs without errors prior to the next steps
 ## note: your consumer should use the GenericRecord class for consumption due to the multiple types the union can produce.
-## note: ensure the consumer applicaiton has the property specific.avro.reader=true
+## note: ensure the consumer application has the property specific.avro.reader=true
 
 # evolve the AccountCreated schema
 ## make a FORWARD compatible change, suggest adding a new field: {"name": "foo", "type": "string"}
@@ -41,7 +41,7 @@ http://localhost:8081/subjects/union.test.avro-value/versions
 # producer new records of the evolved AccountCreated type with the new field
 
 # Do not update the generated classes for the consumer application
-# using the consumer application, attempt to consume the updated records - you should recieve an error during deserialization
+# using the consumer application, attempt to consume the updated records - you should receive an error during deserialization
 ## note: if you set the property specific.avro.reader=false the consumer should be able to consume the records.
 ## however this behavior only occurs when the top level class is a Union
-## if you change the application to only produce AccountCreated records (and follow a similar registration/evolution proceedure) consumption will work with specific records
+## if you change the application to only produce AccountCreated records (and follow a similar registration/evolution procedure) consumption will work with specific records

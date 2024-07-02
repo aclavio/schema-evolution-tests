@@ -3,9 +3,10 @@
  */
 package io.confluent.test;
 
-import io.confluent.kafka.schemaregistry.avro.AvroSchemaUtils;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.specific.SpecificData;
+import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.errors.WakeupException;
@@ -16,6 +17,9 @@ import stream.processing.demo.AccountDeleted;
 import stream.processing.demo.AccountUpdated;
 
 import java.io.FileInputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -28,7 +32,7 @@ public class TestConsumer implements Runnable {
     private static final String DEFAULT_TOPIC = "union.test.avro";
 
     private final KafkaConsumer<String, GenericRecord> consumer;
-    //private final KafkaConsumer<String, AccountCreated> consumer;
+    //private final KafkaConsumer<String, SpecificRecordBase> consumer;
 
     private final List<String> topics;
     private final CountDownLatch shutdownLatch;
@@ -51,8 +55,8 @@ public class TestConsumer implements Runnable {
             // basic Kafka consumer "poll loop"
             while (true) {
                 // poll for new kafka events
-                //ConsumerRecords<String, AccountCreated> records = consumer.poll(Long.MAX_VALUE);
-                ConsumerRecords<String, GenericRecord> records = consumer.poll(Long.MAX_VALUE);
+                //ConsumerRecords<String, SpecificRecordBase> records = consumer.poll(Duration.ofMillis(1000));
+                ConsumerRecords<String, GenericRecord> records = consumer.poll(Duration.ofMillis(1000));
 
                 // application specific processing...
                 records.forEach(record -> {
@@ -62,21 +66,24 @@ public class TestConsumer implements Runnable {
                             record.offset(),
                             record.key(),
                             record.value().toString());
+                    logger.debug("value class: {}", record.value().getClass().getName());
 
-                    // Convert the GenericRecord type from the union to the SpecificRecord type
+                    // Attempt to convert the GenericRecord type from the union to the SpecificRecord type
+                    // extracts the schema name from the GenericRecord, and finds the local generated version of that schema
+                    // this works-around the evolution issue in conjunction with "specific.avro.reader=false"
                     GenericRecord genericRecord = record.value();
-                    logger.info("record uses schema: {}", genericRecord.getSchema().getFullName());
-                    if ("stream.processing.demo.AccountCreated".equals(genericRecord.getSchema().getFullName())) {
-                        AccountCreated ac = (AccountCreated) SpecificData.get().deepCopy(AccountCreated.getClassSchema(), record.value());
-                        logger.info("converted to specific record AccountCreated: {}", ac);
-                    } else if ("stream.processing.demo.AccountDeleted".equals(genericRecord.getSchema().getFullName())) {
-                        AccountDeleted ad = (AccountDeleted) SpecificData.get().deepCopy(AccountDeleted.getClassSchema(), record.value());
-                        logger.info("converted to specific record AccountDeleted: {}", ad);
-                    } else if ("stream.processing.demo.AccountUpdated".equals(genericRecord.getSchema().getFullName())) {
-                        AccountUpdated au = (AccountUpdated) SpecificData.get().deepCopy(AccountUpdated.getClassSchema(), record.value());
-                        logger.info("converted to specific record AccountUpdated: {}", au);
-                    } else {
-                        logger.warn("unexpected schema!");
+                    String className = genericRecord.getSchema().getFullName();
+                    logger.debug("record uses schema: {}", className);
+                    try {
+                        Class<?> clazz = Class.forName(className);
+                        Method getClassSchemaMethod = clazz.getDeclaredMethod("getClassSchema");
+                        Schema schema = (Schema) getClassSchemaMethod.invoke(null);
+                        Object specificData = SpecificData.get().deepCopy(schema, record.value());
+                        logger.info("TEST converted to specific record type [{}]: {}", specificData.getClass().getName(), specificData);
+                    } catch (ClassNotFoundException ex) {
+                        logger.error("SpecificRecord class \"{}\" not found!", className);
+                    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                        throw new RuntimeException(e);
                     }
                 });
 
