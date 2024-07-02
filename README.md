@@ -39,7 +39,7 @@ Start the dockerized test environment
 
 ### Workarounds
 
-Setting `specific.avro.reader=false` in the `consumer.properties` file prevents this issue.  Disabling this setting seems to stop the GenericRecord deserializer from using the incompatible newer schema from the registry with the older concrete SpecificRecord classes in the consumer application.
+Setting `specific.avro.reader=false` in the `consumer.properties` file prevents this issue.  Disabling this setting seems to stop the GenericRecord deserializer from using the incompatible newer schema from the registry with the older concrete SpecificRecord classes in the consumer application.  *Note:* the code in `TestConsumer.java` which can be used in conjunction with this configuration to generate a SpecificRecord from the GenericRecord returned by the consumer.  
 
 
 Registering the updated union schema with references to both the old, and new versions of the sub-schema prevents this issue.  Retaining a reference to the old schema seems to allow the GenericRecord deserializer to utilize the SpecificRecord deserializers with the older schema version.  eg:
